@@ -66,6 +66,8 @@ apps:
       # (qt6-wayland is not staged, Qt falls back to xcb). The gnome
       # extension's desktop-launch forces QT_QPA_PLATFORM=wayland-egl on
       # Wayland sessions unless DISABLE_WAYLAND is set, which aborts at start.
+      # TODO: switch to native Wayland (stage qt6-wayland, drop these two
+      # variables) once Mixxx's open Wayland bugs are fixed upstream.
       DISABLE_WAYLAND: "1"
       QT_QPA_PLATFORM: xcb
     plugs:

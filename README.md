@@ -60,8 +60,14 @@ a native install (PPA, Flatpak, distro package), expect the following:
   `~/snap/mixxx-unofficial/current/.mixxx`, not `~/.mixxx`. Copy an existing
   `~/.mixxx` there to migrate (absolute track paths still have to be reachable
   from inside the snap).
-- **Wayland.** The UI is forced to X11/XWayland (`QT_QPA_PLATFORM=xcb`);
-  `qt6-wayland` is not shipped.
+- **Wayland.** The UI runs through XWayland (`QT_QPA_PLATFORM=xcb`,
+  `DISABLE_WAYLAND=1`); `qt6-wayland` is not shipped. This is deliberate for
+  now: Mixxx still has open native-Wayland bugs (waveform shader crashes on
+  `wayland-egl`, QML skin crashes, broken drag/scroll, HiDPI issues on KDE),
+  see [mixxxdj/mixxx Wayland issues](https://github.com/mixxxdj/mixxx/issues?q=is%3Aissue+is%3Aopen+wayland+in%3Atitle).
+  XWayland works on every Wayland desktop that ships it (GNOME, KDE).
+  **TODO:** once those are fixed upstream, stage `qt6-wayland`, drop
+  `DISABLE_WAYLAND`/`QT_QPA_PLATFORM` and switch to native Wayland.
 - **Version lag.** Only the stable PPA is tracked (no 2.6 beta / nightly
   builds), and a new release reaches the snap within about 12 hours after it is
   published in the PPA for Ubuntu 24.04.
