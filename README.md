@@ -1,15 +1,15 @@
-# Mixxx Fresh (snap)
+# Mixxx Unofficial (snap)
 
 Unofficial snap of [Mixxx](https://mixxx.org), the free open-source DJ software.
 It repackages the official Ubuntu 24.04 build from the Mixxx stable PPA
 ([ppa:mixxx/mixxx](https://launchpad.net/~mixxx/+archive/ubuntu/mixxx)) for
 amd64 and arm64. Not affiliated with or endorsed by the Mixxx Development Team.
 
-    sudo snap install mixxx-fresh
-    sudo snap connect mixxx-fresh:alsa      # MIDI controllers, direct ALSA output
-    sudo snap connect mixxx-fresh:jack1     # optional, JACK
-    sudo snap connect mixxx-fresh:raw-usb   # optional, USB bulk controllers
-    sudo snap connect mixxx-fresh:removable-media  # music on /media, /mnt
+    sudo snap install mixxx-unofficial
+    sudo snap connect mixxx-unofficial:alsa      # MIDI controllers, direct ALSA output
+    sudo snap connect mixxx-unofficial:jack1     # optional, JACK
+    sudo snap connect mixxx-unofficial:raw-usb   # optional, USB bulk controllers
+    sudo snap connect mixxx-unofficial:removable-media  # music on /media, /mnt
 
 ## Automatic updates
 
@@ -17,7 +17,7 @@ amd64 and arm64. Not affiliated with or endorsed by the Mixxx Development Team.
 
 1. `check-upstream` reads the newest `mixxx` source published for noble in the
    PPA (Launchpad API) and compares it with the version in the `stable` channel
-   of `mixxx-fresh`.
+   of `mixxx-unofficial`.
 2. If they differ, `build-and-publish` builds the snap on native amd64 and arm64
    runners, installs it, runs an `ldd` sweep inside the snap runtime plus
    `mixxx --version`, and uploads to `edge`.
@@ -27,7 +27,7 @@ The version is taken from the PPA package at build time (`adopt-info`), so new
 releases need no commit here.
 
 Required repository secret: `SNAPCRAFT_STORE_CREDENTIALS`
-(`snapcraft export-login --snaps=mixxx-fresh --channels=edge,stable creds.txt`).
+(`snapcraft export-login --snaps=mixxx-unofficial --channels=edge,stable creds.txt`).
 
 ## Limitations
 
@@ -54,10 +54,10 @@ a native install (PPA, Flatpak, distro package), expect the following:
   raise its audio thread priority; buffer underruns at very low latency are more likely
   than with a native install.
 - **File access.** Music is readable from `$HOME` (non-hidden paths) and from
-  `/media` and `/mnt` only after `snap connect mixxx-fresh:removable-media`.
+  `/media` and `/mnt` only after `snap connect mixxx-unofficial:removable-media`.
   Hidden folders in `$HOME` and other system paths are not visible.
 - **Settings location.** The Mixxx library and settings live in
-  `~/snap/mixxx-fresh/current/.mixxx`, not `~/.mixxx`. Copy an existing
+  `~/snap/mixxx-unofficial/current/.mixxx`, not `~/.mixxx`. Copy an existing
   `~/.mixxx` there to migrate (absolute track paths still have to be reachable
   from inside the snap).
 - **Wayland.** The UI is forced to X11/XWayland (`QT_QPA_PLATFORM=xcb`);

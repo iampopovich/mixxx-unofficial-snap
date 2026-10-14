@@ -1,5 +1,5 @@
-name: mixxx-fresh
-title: Mixxx Fresh
+name: mixxx-unofficial
+title: Mixxx Unofficial
 base: core24
 adopt-info: mixxx
 platforms:
@@ -23,10 +23,10 @@ description: |
   https://github.com/mixxxdj/mixxx.
 
   After installing, connect the manual interfaces you need:
-    sudo snap connect mixxx-fresh:alsa       # MIDI controllers, direct ALSA devices
-    sudo snap connect mixxx-fresh:jack1      # JACK (optional)
-    sudo snap connect mixxx-fresh:raw-usb    # USB bulk controllers (optional)
-    sudo snap connect mixxx-fresh:removable-media  # music on /media, /mnt
+    sudo snap connect mixxx-unofficial:alsa       # MIDI controllers, direct ALSA devices
+    sudo snap connect mixxx-unofficial:jack1      # JACK (optional)
+    sudo snap connect mixxx-unofficial:raw-usb    # USB bulk controllers (optional)
+    sudo snap connect mixxx-unofficial:removable-media  # music on /media, /mnt
 license: GPL-2.0-or-later
 website: https://mixxx.org
 source-code: https://github.com/iampopovich/mixxx-unofficial-snap
@@ -47,7 +47,7 @@ layout:
     bind: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/alsa-lib
 
 apps:
-  mixxx-fresh:
+  mixxx-unofficial:
     command: usr/bin/mixxx
     desktop: usr/share/applications/org.mixxx.Mixxx.desktop
     common-id: org.mixxx.Mixxx
@@ -103,8 +103,8 @@ parts:
       # snap launch the app directly.
       DESKTOP="$CRAFT_PART_INSTALL/usr/share/applications/org.mixxx.Mixxx.desktop"
       sed -i \
-        -e 's|^Exec=.*|Exec=mixxx-fresh|' \
-        -e 's|^Name=Mixxx$|Name=Mixxx Fresh|' \
+        -e 's|^Exec=.*|Exec=mixxx-unofficial|' \
+        -e 's|^Name=Mixxx$|Name=Mixxx Unofficial|' \
         -e 's|^Icon=.*|Icon=${SNAP}/usr/share/icons/hicolor/scalable/apps/mixxx.svg|' \
         "$DESKTOP"
 

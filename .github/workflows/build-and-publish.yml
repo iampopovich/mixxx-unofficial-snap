@@ -37,7 +37,7 @@ jobs:
           fi
 
           # Version currently published to the stable channel of our snap (empty if none yet)
-          PUBLISHED_VERSION=$(curl -s "https://api.snapcraft.io/v2/snaps/info/mixxx-fresh" \
+          PUBLISHED_VERSION=$(curl -s "https://api.snapcraft.io/v2/snaps/info/mixxx-unofficial" \
             -H "Snap-Device-Series: 16" | \
             jq -r '[."channel-map"[]? | select(.channel.name == "stable")][0].version // ""' || true)
           echo "Published version: $PUBLISHED_VERSION"
@@ -86,7 +86,7 @@ jobs:
           # Install it and check libraries inside the real snap runtime
           # (the gnome extension provides part of LD_LIBRARY_PATH).
           sudo snap install --dangerous "$SNAP_FILE"
-          snap run --shell mixxx-fresh -c '
+          snap run --shell mixxx-unofficial -c '
             missing=0
             for f in $(find "$SNAP/usr/bin" "$SNAP/usr/lib" -type f \( -name "*.so*" -o -perm -u+x \)); do
               if [ "$(head -c4 "$f" | tail -c3)" = "ELF" ]; then
@@ -98,7 +98,7 @@ jobs:
           '
           # The app sets QT_QPA_PLATFORM=xcb; override it inside the snap shell
           # because the runner has no display.
-          OUT=$(timeout 60 snap run --shell mixxx-fresh -c 'QT_QPA_PLATFORM=offscreen "$SNAP/usr/bin/mixxx" --version' 2>&1 || true)
+          OUT=$(timeout 60 snap run --shell mixxx-unofficial -c 'QT_QPA_PLATFORM=offscreen "$SNAP/usr/bin/mixxx" --version' 2>&1 || true)
           echo "$OUT"
           if echo "$OUT" | grep -qE "error while loading shared libraries|could not load the Qt platform plugin"; then
             echo "::error::mixxx failed to start"
@@ -126,4 +126,4 @@ jobs:
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: |
-          snapcraft promote mixxx-fresh --from-channel=edge --to-channel=stable --yes
+          snapcraft promote mixxx-unofficial --from-channel=edge --to-channel=stable --yes
