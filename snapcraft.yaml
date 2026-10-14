@@ -63,7 +63,10 @@ apps:
       # default device to PulseAudio/PipeWire through the alsa pulse plugin.
       ALSA_CONFIG_PATH: $SNAP/etc/asound.conf
       # Mixxx's OpenGL waveforms are most reliable on X11/XWayland
-      # (qt6-wayland is not staged, Qt falls back to xcb).
+      # (qt6-wayland is not staged, Qt falls back to xcb). The gnome
+      # extension's desktop-launch forces QT_QPA_PLATFORM=wayland-egl on
+      # Wayland sessions unless DISABLE_WAYLAND is set, which aborts at start.
+      DISABLE_WAYLAND: "1"
       QT_QPA_PLATFORM: xcb
     plugs:
       - home

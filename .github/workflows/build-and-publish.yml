@@ -82,6 +82,9 @@ jobs:
           grep -q "^version: '\?${{ needs.check-upstream.outputs.upstream_version }}'\?$" prime/meta/snap.yaml
           test -x prime/usr/bin/mixxx
           test -f prime/etc/asound.conf
+          # Without this the gnome desktop-launch forces wayland-egl on Wayland
+          # sessions and Mixxx aborts (no Qt wayland plugin is shipped).
+          grep -q 'DISABLE_WAYLAND' prime/meta/snap.yaml
 
           # Install it and check libraries inside the real snap runtime
           # (the gnome extension provides part of LD_LIBRARY_PATH).
