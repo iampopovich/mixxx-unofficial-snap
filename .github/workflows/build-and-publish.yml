@@ -1,0 +1,129 @@
+name: Build and publish snap
+
+on:
+  schedule:
+    # Every 12 hours - Mixxx ships stable releases via its PPA every few months
+    - cron: '0 */12 * * *'
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - snapcraft.yaml
+      - other-files/**
+      - snap/**
+      - .github/workflows/build-and-publish.yml
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.check.outputs.new_version }}
+      upstream_version: ${{ steps.check.outputs.upstream_version }}
+    steps:
+      - name: Compare Mixxx PPA version with published snap
+        id: check
+        run: |
+          set -euo pipefail
+          # Same source the snap builds from: ppa:mixxx/mixxx, noble (= core24).
+          API="https://api.launchpad.net/1.0/~mixxx/+archive/ubuntu/mixxx"
+          QUERY="ws.op=getPublishedSources&source_name=mixxx&status=Published&exact_match=true&distro_series=https://api.launchpad.net/1.0/ubuntu/noble&order_by_date=true"
+          PPA_VERSION=$(curl -fsSL "$API?$QUERY" | jq -r '.entries[0].source_package_version // ""')
+          # 2.5.6-1~noble -> 2.5.6
+          UPSTREAM_VERSION=$(echo "$PPA_VERSION" | sed -E 's/^([0-9]+:)?([^-~]+).*/\2/')
+          echo "PPA version: $PPA_VERSION -> $UPSTREAM_VERSION"
+          if [ -z "$UPSTREAM_VERSION" ]; then
+            echo "::error::Could not read upstream version"
+            exit 1
+          fi
+
+          # Version currently published to the stable channel of our snap (empty if none yet)
+          PUBLISHED_VERSION=$(curl -s "https://api.snapcraft.io/v2/snaps/info/mixxx-fresh" \
+            -H "Snap-Device-Series: 16" | \
+            jq -r '[."channel-map"[]? | select(.channel.name == "stable")][0].version // ""' || true)
+          echo "Published version: $PUBLISHED_VERSION"
+
+          if [ "$UPSTREAM_VERSION" != "$PUBLISHED_VERSION" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "push" ]; then
+            echo "new_version=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "new_version=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "upstream_version=$UPSTREAM_VERSION" >> "$GITHUB_OUTPUT"
+
+  build-and-publish:
+    needs: check-upstream
+    if: needs.check-upstream.outputs.new_version == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    # snapcraft builds only for the runner's own arch (build-on == build-for),
+    # so each arch needs a native runner.
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build snap (${{ matrix.arch }})
+        uses: snapcore/action-build@v1
+        id: build
+        with:
+          path: .
+
+      - name: Smoke test the built snap
+        run: |
+          set -euo pipefail
+          SNAP_FILE="${{ steps.build.outputs.snap }}"
+          sudo apt-get update -qq && sudo apt-get install -y -qq squashfs-tools
+          unsquashfs -q -d prime "$SNAP_FILE"
+          grep -E '^version:' prime/meta/snap.yaml
+          grep -q "^version: '\?${{ needs.check-upstream.outputs.upstream_version }}'\?$" prime/meta/snap.yaml
+          test -x prime/usr/bin/mixxx
+          test -f prime/etc/asound.conf
+
+          # Install it and check libraries inside the real snap runtime
+          # (the gnome extension provides part of LD_LIBRARY_PATH).
+          sudo snap install --dangerous "$SNAP_FILE"
+          snap run --shell mixxx-fresh -c '
+            missing=0
+            for f in $(find "$SNAP/usr/bin" "$SNAP/usr/lib" -type f \( -name "*.so*" -o -perm -u+x \)); do
+              if [ "$(head -c4 "$f" | tail -c3)" = "ELF" ]; then
+                out=$(ldd "$f" 2>/dev/null | grep "not found" || true)
+                if [ -n "$out" ]; then echo "$f:"; echo "$out"; missing=1; fi
+              fi
+            done
+            exit $missing
+          '
+          # The app sets QT_QPA_PLATFORM=xcb; override it inside the snap shell
+          # because the runner has no display.
+          OUT=$(timeout 60 snap run --shell mixxx-fresh -c 'QT_QPA_PLATFORM=offscreen "$SNAP/usr/bin/mixxx" --version' 2>&1 || true)
+          echo "$OUT"
+          if echo "$OUT" | grep -qE "error while loading shared libraries|could not load the Qt platform plugin"; then
+            echo "::error::mixxx failed to start"
+            exit 1
+          fi
+          echo "$OUT" | grep -q "${{ needs.check-upstream.outputs.upstream_version }}"
+
+      - name: Publish to edge first
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: edge
+
+  promote-to-stable:
+    needs: [check-upstream, build-and-publish]
+    if: needs.check-upstream.outputs.new_version == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install snapcraft
+        run: sudo snap install snapcraft --classic
+
+      - name: Promote edge to stable
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          snapcraft promote mixxx-fresh --from-channel=edge --to-channel=stable --yes

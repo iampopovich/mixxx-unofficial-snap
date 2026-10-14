@@ -1,0 +1,134 @@
+name: mixxx-fresh
+title: Mixxx Fresh
+base: core24
+adopt-info: mixxx
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+  arm64:
+    build-on: [arm64]
+    build-for: [arm64]
+summary: Mixxx, free DJ software (latest stable release)
+description: |
+  Mixxx is free, open-source DJ software: mix tracks live with BPM detection,
+  key detection, sync, effects, recording, broadcasting and support for
+  hundreds of MIDI/HID DJ controllers.
+
+  This is an unofficial community snap. It is not made or endorsed by the
+  Mixxx Development Team. It repackages the official Ubuntu 24.04 build from
+  the Mixxx stable PPA (https://launchpad.net/~mixxx/+archive/ubuntu/mixxx)
+  and is rebuilt automatically whenever a new stable release appears there.
+  Mixxx is licensed under GPL-2.0-or-later; the source is available at
+  https://github.com/mixxxdj/mixxx.
+
+  After installing, connect the manual interfaces you need:
+    sudo snap connect mixxx-fresh:alsa       # MIDI controllers, direct ALSA devices
+    sudo snap connect mixxx-fresh:jack1      # JACK (optional)
+    sudo snap connect mixxx-fresh:raw-usb    # USB bulk controllers (optional)
+    sudo snap connect mixxx-fresh:removable-media  # music on /media, /mnt
+license: GPL-2.0-or-later
+website: https://mixxx.org
+source-code: https://github.com/iampopovich/mixxx-unofficial-snap
+issues: https://github.com/iampopovich/mixxx-unofficial-snap/issues
+grade: stable
+confinement: strict
+compression: lzo
+icon: snap/gui/mixxx.svg
+
+package-repositories:
+  - type: apt
+    ppa: mixxx/mixxx
+
+layout:
+  /usr/share/alsa:
+    bind: $SNAP/usr/share/alsa
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/alsa-lib:
+    bind: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/alsa-lib
+
+apps:
+  mixxx-fresh:
+    command: usr/bin/mixxx
+    desktop: usr/share/applications/org.mixxx.Mixxx.desktop
+    common-id: org.mixxx.Mixxx
+    extensions: [gnome]
+    environment:
+      # The gnome extension only adds its runtime libs; staged PPA libs
+      # (Qt6, ffmpeg, PortAudio, ...) need to be on the path explicitly.
+      LD_LIBRARY_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/blas:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/lapack:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/pulseaudio
+      QT_PLUGIN_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/qt6/plugins
+      QML_IMPORT_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/qt6/qml
+      QML2_IMPORT_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/qt6/qml
+      # PortAudio in the PPA build has no PulseAudio host API; route ALSA's
+      # default device to PulseAudio/PipeWire through the alsa pulse plugin.
+      ALSA_CONFIG_PATH: $SNAP/etc/asound.conf
+      # Mixxx's OpenGL waveforms are most reliable on X11/XWayland
+      # (qt6-wayland is not staged, Qt falls back to xcb).
+      QT_QPA_PLATFORM: xcb
+    plugs:
+      - home
+      - removable-media
+      - network
+      - network-bind
+      - audio-playback
+      - audio-record
+      - alsa
+      - jack1
+      - raw-usb
+      - screen-inhibit-control
+      - upower-observe
+      - opengl
+
+parts:
+  mixxx:
+    plugin: nil
+    stage-packages:
+      - mixxx
+      - libasound2-plugins
+      - qt6-qpa-plugins
+      - qt6-gtk-platformtheme
+    parse-info: [usr/share/metainfo/org.mixxx.Mixxx.metainfo.xml]
+    override-build: |
+      set -eu
+      craftctl default
+
+      # 2.5.6-1~noble -> 2.5.6
+      VERSION=$(zcat "$CRAFT_PART_INSTALL/usr/share/doc/mixxx/changelog.Debian.gz" \
+        | head -1 | sed -E 's/^mixxx \(([0-9]+:)?([^-~)]+).*/\2/')
+      [ -n "$VERSION" ] || { echo "Could not read Mixxx version"; exit 1; }
+      echo "Mixxx version: $VERSION"
+      craftctl set version="$VERSION"
+
+      # Upstream Exec runs `sh -c "pasuspender -- mixxx || mixxx"`; inside the
+      # snap launch the app directly.
+      DESKTOP="$CRAFT_PART_INSTALL/usr/share/applications/org.mixxx.Mixxx.desktop"
+      sed -i \
+        -e 's|^Exec=.*|Exec=mixxx-fresh|' \
+        -e 's|^Name=Mixxx$|Name=Mixxx Fresh|' \
+        -e 's|^Icon=.*|Icon=${SNAP}/usr/share/icons/hicolor/scalable/apps/mixxx.svg|' \
+        "$DESKTOP"
+
+      # udev rules cannot be installed from a strict snap.
+      rm -rf "$CRAFT_PART_INSTALL/usr/lib/udev"
+    prime:
+      - -usr/share/doc/*/changelog*
+      - -usr/share/man
+
+  alsa-config:
+    plugin: dump
+    source: ./other-files
+    organize:
+      asound.conf: etc/asound.conf
+    prime: [etc/asound.conf]
+
+  # Drop libraries that the core24 base and the gnome extension runtime
+  # already provide, so the snap does not carry duplicates.
+  cleanup:
+    after: [mixxx, alsa-config]
+    plugin: nil
+    build-snaps: [core24, gtk-common-themes, gnome-46-2404]
+    override-prime: |
+      set -eux
+      for snap in core24 gtk-common-themes gnome-46-2404; do
+        cd "/snap/$snap/current" && find . -type f,l -name '*.so.*' -exec rm -f "$CRAFT_PRIME/{}" \;
+      done
