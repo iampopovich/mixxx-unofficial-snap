@@ -2,8 +2,7 @@ name: Build and publish snap
 
 on:
   schedule:
-    # Every 12 hours - Mixxx ships stable releases via its PPA every few months
-    - cron: '0 */12 * * *'
+    - cron: '0 9 * * *'
   workflow_dispatch: {}
   push:
     branches: [main]
